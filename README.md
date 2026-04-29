@@ -1,2 +1,3 @@
-# GPI
-project de master gpi structural 
+# STRUCTURAL PROJECT GPI 
+everything is done by me for Jossinet because i don't undestand coding! 
+structural is good tho.

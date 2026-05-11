@@ -1,89 +1,60 @@
-import mrcfile
+"""particle extraction from micrographs using reference-based template matching"""
+import os
 import numpy as np
+import mrcfile
 import matplotlib.pyplot as plt
 
-# =========================
-# LOAD MRC IMAGE
-# =========================
+def coordinate_extraction (image, box_size, coordinate_reference):
+    np.array(image)== image.astype(np.float32)
+    extracted_particles= []
+    for coord in coordinate_reference:
+        x, y= coord
+        x_start= int(x - box_size/2)
+        x_end= int(x + box_size/2)
+        y_start= int(y - box_size/2)
+        y_end= int(y + box_size/2)
+        particle= image[y_start:y_end, x_start:x_end]
+        extracted_particles.append(particle)
+    return extracted_particles
 
-mrc_file = "padded_200_binning_4_14sep05c_c_00003gr_00014sq_00005hl_00003es_c.mrc"   # <- change path here
+input_file = "/home/tlaborde/GPI_proj/padded_200_binning_4_14sep05c_c_00003gr_00014sq_00005hl_00003es_c.mrc"
+image =input_file
 
-with mrcfile.open(mrc_file, permissive=True) as mrc:
-    image = mrc.data.astype(np.float32)
+# CHECK FILE
+if not os.path.exists(input_file):
+    raise FileNotFoundError(
+        f"File not found: {input_file}"
+    )   
 
-# If 3D stack -> take first slice
-if image.ndim == 3:
-    image = image[0]
+# GET FILE NAME
+base_name = os.path.splitext(
+    os.path.basename(input_file))[0]
 
-print("Shape :", image.shape)
-print("dtype :", image.dtype)
+# OPEN ORIGINAL MRC
+with mrcfile.open(
+    input_file,
+    permissive=True
+) as mrc:
 
-# =========================
-# DISPLAY IMAGE
-# =========================
+    data = mrc.data
 
-fig, ax = plt.subplots(figsize=(8, 8))
+    # Handle 3D stack choose which slice to pad
+    if data.ndim == 3:
+        image_array = data[0] #change this 
+    else:
+        image_array = data
+print(image_array.shape)
 
-im = ax.imshow(
-    image,
-    cmap='gray',
-    origin='upper',
-    vmin=np.percentile(image, 1),
-    vmax=np.percentile(image, 99)
-)
+box_size = 128
+coordinate_reference = [(500, 500)]
+print(coordinate_reference)
 
-plt.colorbar(im, ax=ax, label='Intensity')
-
-ax.set_title("Click on image")
-
-# =========================
-# CLICK EVENT FUNCTION
-# =========================
-
-def on_click(event):
-
-    # Check mouse inside axes
-    if event.inaxes != ax:
-        return
-
-    # Mouse coordinates
-    x = int(event.xdata)
-    y = int(event.ydata)
-
-    # Check boundaries
-    if (
-        x >= 0 and x < image.shape[1]
-        and
-        y >= 0 and y < image.shape[0]
-    ):
-
-        # Pixel intensity
-        intensity = image[y, x]
-
-        # Print in terminal
-        print(
-            f"X={x}, Y={y}, Intensity={intensity}"
-        )
-
-        # Update title
-        ax.set_title(
-            f"X={x} | Y={y} | Intensity={intensity:.3f}"
-        )
-
-        # Refresh figure
-        fig.canvas.draw_idle()
-
-# =========================
-# CONNECT EVENT
-# =========================
-
-fig.canvas.mpl_connect(
-    'button_press_event',
-    on_click
-)
-
-# =========================
-# SHOW
-# =========================
-
+extracted_particles = coordinate_extraction(image_array, box_size, coordinate_reference)
+plt.imshow(
+    extracted_particles[0],
+    cmap='gray')
+min_val = np.percentile(extracted_particles[0], 1)
+max_val = np.percentile(extracted_particles[0], 99)
+plt.title("Extracted Particle")
+plt.axis("off")
 plt.show()

@@ -157,29 +157,73 @@ Key Columns:
     # Center coordinates
     coords_centered = coords - coords.mean(axis=0)
 
-    # Resolution of projection image
-    img_size = 256  # pixels
-    padding = 5     # Å padding around structure
 
-    # Function to create summed projection
-    def create_projection(coord1, coord2, bins=256):
-        # Determine bounds
-        min1, max1 = coord1.min() - padding, coord1.max() + padding
-        min2, max2 = coord2.min() - padding, coord2.max() + padding
-        
-        # 2D histogram (counts = density)
-        H, xedges, yedges = np.histogram2d(coord1, coord2, bins=bins,
-                                        range=[[min1, max1], [min2, max2]])
-        
-        # Normalize for display
+ # Pixel size imposed (Å/pixel)
+    pixel_size = 2.64
+
+# Padding around molecule
+    padding = 5 # Å
+
+# Determine physical box size
+    x_range = coords_centered[:, 0].max() - coords_centered[:, 0].min()
+    y_range = coords_centered[:, 1].max() - coords_centered[:, 1].min()
+    z_range = coords_centered[:, 2].max() - coords_centered[:, 2].min()
+
+# Largest dimension defines box size
+    box_size_angstrom = max(x_range, y_range, z_range) + 2 * padding
+
+# Convert to pixels using desired pixel size
+    img_size = int(np.ceil(box_size_angstrom / pixel_size))
+
+    print(f"Pixel size: {pixel_size} Å/pixel")
+    print(f"Box size: {box_size_angstrom:.2f} Å")
+    print(f"Image size: {img_size} x {img_size} pixels")
+ 
+    def create_projection(coord1, coord2, bins, box_size):
+
+        half_box = box_size / 2
+
+        # Centered coordinate system
+        range1 = [-half_box, half_box]
+        range2 = [-half_box, half_box]
+
+        # 2D histogram
+        H, xedges, yedges = np.histogram2d(
+            coord1,
+            coord2,
+            bins=bins,
+            range=[range1, range2]
+        )
+
+        # Normalize
         H = H / H.max()
+
+        # Invert grayscale
         H = 1.0 - H
+
         return H
 
     # Create projections
-    proj_xy = create_projection(coords_centered[:, 0], coords_centered[:, 1], img_size)
-    proj_xz = create_projection(coords_centered[:, 0], coords_centered[:, 2], img_size)
-    proj_yz = create_projection(coords_centered[:, 1], coords_centered[:, 2], img_size)
+    proj_xy = create_projection(
+        coords_centered[:, 0],
+        coords_centered[:, 1],
+        img_size,
+        box_size_angstrom
+    )
+
+    proj_xz = create_projection(
+        coords_centered[:, 0],
+        coords_centered[:, 2],
+        img_size,
+        box_size_angstrom
+    )
+
+    proj_yz = create_projection(
+        coords_centered[:, 1],
+        coords_centered[:, 2],
+        img_size,
+        box_size_angstrom
+    )
 
     # Plot projections
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
@@ -236,7 +280,7 @@ Key Columns:
     plt.tight_layout()
     plt.show()
 
-    
+
 except urllib.error.URLError as e:
     print(f"❌ Error downloading PDB file: {e}")
     print("   Make sure you have internet connection")

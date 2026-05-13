@@ -159,7 +159,7 @@ Key Columns:
 
 
  # Pixel size imposed (Å/pixel)
-    pixel_size = 2.64
+    pixel_size = image_pixel_size
 
 # Padding around molecule
     padding = 5 # Å
@@ -224,6 +224,58 @@ Key Columns:
         img_size,
         box_size_angstrom
     )
+
+    # ============================================================
+    # SAVE PROJECTIONS AS MRC FILES
+    # ============================================================
+
+    print("\n" + "="*70)
+    print("💾 SAVING PROJECTIONS AS MRC TEMPLATES")
+    print("="*70)
+
+    # Convert to float32 (standard for MRC)
+    proj_xy_mrc = proj_xy.astype(np.float32)
+    proj_xz_mrc = proj_xz.astype(np.float32)
+    proj_yz_mrc = proj_yz.astype(np.float32)
+
+# Save XY projection
+    with mrcfile.new(f"{pdb_id}_XY_template.mrc", overwrite=True) as mrc:
+        mrc.set_data(proj_xy_mrc)
+
+    # Pixel size metadata
+        mrc.voxel_size = pixel_size
+
+    # Header updates
+        mrc.header.origin = (0.0, 0.0, 0.0)
+
+    print(f"✓ Saved: {pdb_id}_XY_template.mrc")
+
+# Save XZ projection
+    with mrcfile.new(f"{pdb_id}_XZ_template.mrc", overwrite=True) as mrc:
+        mrc.set_data(proj_xz_mrc)
+        mrc.voxel_size = pixel_size
+        mrc.header.origin = (0.0, 0.0, 0.0)
+
+    print(f"✓ Saved: {pdb_id}_XZ_template.mrc")
+
+# Save YZ projection
+    with mrcfile.new(f"{pdb_id}_YZ_template.mrc", overwrite=True) as mrc:
+        mrc.set_data(proj_yz_mrc)
+        mrc.voxel_size = pixel_size
+        mrc.header.origin = (0.0, 0.0, 0.0)
+
+    print(f"✓ Saved: {pdb_id}_YZ_template.mrc")
+
+    print("\nMRC Template Information:")
+    print(f"  - Pixel size: {pixel_size} Å/pixel")
+    print(f"  - Image size: {img_size} x {img_size}")
+    print("  - Data type: float32")
+    print("  - Compatible with cryo-EM software:")
+    print("      * RELION")
+    print("      * cryoSPARC")
+    print("      * EMAN2")
+    print("      * IMOD")
+    print("      * Warp")
 
     # Plot projections
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))

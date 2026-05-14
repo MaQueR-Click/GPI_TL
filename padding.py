@@ -3,7 +3,7 @@ import numpy as np
 import mrcfile
 import matplotlib.pyplot as plt
 
-def apply_padding(img, pad_width, mode='constant', constant_value=255):
+def apply_padding(img, pad_width, mode='constant', constant_value=0):
     """
     Apply padding to an image using NumPy.
     
@@ -34,7 +34,7 @@ def apply_padding(img, pad_width, mode='constant', constant_value=255):
     return padded
 
 # INPUT FILE
-input_file = "/home/tlaborde/GPI_proj/binning_4_14sep05c_c_00003gr_00014sq_00005hl_00003es_c.mrc"
+input_file = "normalized_crop.mrc"
 
 # CHECK FILE
 if not os.path.exists(input_file):
@@ -61,7 +61,7 @@ with mrcfile.open(
         image_array = data
 
 # Padding parameters
-pad_width = 200 # Number of pixels to pad on each side 
+pad_width = 50 # Number of pixels to pad on each side 
 
 # PAD IMAGE
 padded_image = apply_padding(image_array, pad_width, mode='constant', constant_value=0)  # Change mode and constant_value as needed between 0 and 32 

@@ -4,7 +4,7 @@ import os
 import matplotlib.pyplot as plt
 from scipy.signal import correlate2d
 # INPUT FILE
-input_file = "cropped_image_test.mrc"
+input_file = "GPI_TL/binning_4_14sep05c_c_00003gr_00014sq_00005hl_00003es_c.mrc"
 
 def normalize_image(image):
     """
@@ -32,7 +32,7 @@ with mrcfile.open(input_file, permissive=True) as mrc:
 normalized_image = normalize_image(data)
 # OUTPUT MRC FILE
 output_file = (
-    f"normalized_crop.mrc")
+    f"normalized_{os.path.basename(input_file)}")
 # SAVE Normalized IMAGE AS MRC
 with mrcfile.new(
     output_file,

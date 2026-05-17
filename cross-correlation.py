@@ -1,5 +1,8 @@
 # ============================================================
-# MULTI-TEMPLATE NCC MATCHING + PARTICLE EXTRACTION
+# MULTI-TEMPLATE NCC MATCHING
+# UNIQUE PARTICLE EXTRACTION
+# SINGLE OUTPUT FOLDER
+# KEEP ONLY BEST COLOCALIZED PARTICLE
 # ============================================================
 
 import os
@@ -16,6 +19,7 @@ from skimage.feature import match_template, peak_local_max
 # ============================================================
 
 def add_padding(image, pad):
+
     return np.pad(
         image,
         ((pad, pad), (pad, pad)),
@@ -25,6 +29,7 @@ def add_padding(image, pad):
 
 
 def normalize(x, eps=1e-8):
+
     return (x - np.mean(x)) / (np.std(x) + eps)
 
 
@@ -33,8 +38,10 @@ def normalize(x, eps=1e-8):
 # ============================================================
 
 def preprocess_image(image, sigma=1, pad_size=50):
+
     image = gaussian_filter(image, sigma=sigma)
     image = normalize(image)
+
     return add_padding(image, pad_size)
 
 
@@ -42,13 +49,24 @@ def preprocess_image(image, sigma=1, pad_size=50):
 # PREPROCESS TEMPLATE
 # ============================================================
 
-def preprocess_template(template, sigma=1, pad_size=50, noise_sigma=0.0):
+def preprocess_template(
+    template,
+    sigma=1,
+    pad_size=32,
+    noise_sigma=0.0
+):
+
     template = gaussian_filter(template, sigma=sigma)
 
     if noise_sigma > 0:
-        template += np.random.normal(0, noise_sigma, template.shape)
+        template += np.random.normal(
+            0,
+            noise_sigma,
+            template.shape
+        )
 
     template = normalize(template)
+
     return add_padding(template, pad_size)
 
 
@@ -56,7 +74,12 @@ def preprocess_template(template, sigma=1, pad_size=50, noise_sigma=0.0):
 # PARTICLE EXTRACTION
 # ============================================================
 
-def extract_particle(image, center_y, center_x, box_shape):
+def extract_particle(
+    image,
+    center_y,
+    center_x,
+    box_shape
+):
 
     h, w = box_shape
 
@@ -69,7 +92,6 @@ def extract_particle(image, center_y, center_x, box_shape):
     x1 = center_x - half_w
     x2 = x1 + w
 
-    # safety check
     if y1 < 0 or x1 < 0:
         return None
 
@@ -85,10 +107,36 @@ def extract_particle(image, center_y, center_x, box_shape):
 
 
 # ============================================================
+# DUPLICATE CHECK
+# ============================================================
+
+def is_duplicate(
+    y,
+    x,
+    accepted_particles,
+    distance_thresh
+):
+
+    for p in accepted_particles:
+
+        dy = y - p["y"]
+        dx = x - p["x"]
+
+        dist = np.sqrt(dx**2 + dy**2)
+
+        if dist < distance_thresh:
+            return True
+
+    return False
+
+
+# ============================================================
 # INPUT MICROGRAPH
 # ============================================================
 
-input_file = "GPI_TL/binning_4_14sep05c_c_00003gr_00014sq_00005hl_00003es_c.mrc"
+input_file = (
+    "GPI_TL/binning_4_14sep05c_00024sq_00006hl_00003es_c.mrc"
+)
 
 with mrcfile.open(input_file, permissive=True) as mrc:
     original_image = mrc.data.astype(np.float32)
@@ -98,9 +146,14 @@ pixel_size = 2.64
 print("=" * 70)
 print("MICROGRAPH")
 print("=" * 70)
+
 print("Original shape:", original_image.shape)
 
-image = preprocess_image(original_image, sigma=1, pad_size=50)
+image = preprocess_image(
+    original_image,
+    sigma=1,
+    pad_size=50
+)
 
 print("Padded shape:", image.shape)
 
@@ -110,21 +163,19 @@ print("Padded shape:", image.shape)
 # ============================================================
 
 template_configs = [
+
     {
         "file": "6BDF_XY_template.mrc",
         "diameter": 115,
-        "threshold": 0.28
+        "threshold": 0.26
     },
+
     {
         "file": "6BDF_XZ_template.mrc",
         "diameter": 150,
         "threshold": 0.30
-    },
-    {
-        "file": "6BDF_YZ_template.mrc",
-        "diameter": 150,
-        "threshold": 0.30
     }
+
 ]
 
 
@@ -133,30 +184,51 @@ template_configs = [
 # ============================================================
 
 angles = np.arange(0, 181, 10)
+
 noise_sigma = 0.0
 
-output_dir = "extracted_particles"
+output_dir = "extracted_particles_unique"
+
 os.makedirs(output_dir, exist_ok=True)
+
+# colocalization threshold
+duplicate_distance_px = 15
 
 
 # ============================================================
 # FIGURE
 # ============================================================
 
-fig, axes = plt.subplots(len(template_configs), 4, figsize=(22, 15))
+fig, axes = plt.subplots(
+    len(template_configs),
+    4,
+    figsize=(22, 15)
+)
 
 if len(template_configs) == 1:
     axes = np.expand_dims(axes, axis=0)
 
 
 # ============================================================
-# MAIN LOOP
+# STORE ALL DETECTIONS
+# ============================================================
+
+all_detections = []
+
+
+# ============================================================
+# MAIN TEMPLATE LOOP
 # ============================================================
 
 for idx, cfg in enumerate(template_configs):
 
     template_file = cfg["file"]
-    particle_size_px = max(1, int(cfg["diameter"] / pixel_size))
+
+    particle_size_px = max(
+        1,
+        int(cfg["diameter"] / pixel_size)
+    )
+
     threshold = cfg["threshold"]
 
     print("\n" + "=" * 70)
@@ -170,6 +242,7 @@ for idx, cfg in enumerate(template_configs):
     # --------------------------------------------------------
 
     with mrcfile.open(template_file, permissive=True) as mrc:
+
         raw_template = mrc.data.astype(np.float32)
 
     template_shape = raw_template.shape
@@ -200,7 +273,11 @@ for idx, cfg in enumerate(template_configs):
             cval=0
         )
 
-        cc = match_template(image, rotated, pad_input=True)
+        cc = match_template(
+            image,
+            rotated,
+            pad_input=True
+        )
 
         global_cc = np.maximum(global_cc, cc)
 
@@ -210,110 +287,106 @@ for idx, cfg in enumerate(template_configs):
 
     coords = peak_local_max(
         global_cc,
-        min_distance=max(1, particle_size_px // 2),
+        min_distance=max(
+            1,
+            particle_size_px // 2
+        ),
         threshold_abs=threshold
     )
 
-    print("Detections:", len(coords))
-
-    # --------------------------------------------------------
-    # EXTRACT PARTICLES
-    # --------------------------------------------------------
+    print("Raw detections:", len(coords))
 
     template_name = os.path.splitext(
         os.path.basename(template_file)
     )[0]
 
-    template_output_dir = os.path.join(
-        output_dir,
-        template_name
-    )
+    # --------------------------------------------------------
+    # STORE DETECTIONS
+    # --------------------------------------------------------
 
-    os.makedirs(template_output_dir, exist_ok=True)
-
-    saved_count = 0
-
-    for particle_id, (y, x) in enumerate(coords):
-
-        particle = extract_particle(
-            image=original_image,
-            center_y=y,
-            center_x=x,
-            box_shape=template_shape
-        )
-
-        if particle is None:
-            continue
+    for y, x in coords:
 
         score = global_cc[y, x]
 
-        output_path = os.path.join(
-            template_output_dir,
-            f"{template_name}_particle_{particle_id:04d}_score_{score:.3f}.mrc"
-        )
+        all_detections.append({
 
-        with mrcfile.new(output_path, overwrite=True) as mrc:
-            mrc.set_data(particle.astype(np.float32))
+            "y": y,
+            "x": x,
+            "score": score,
+            "template": template_name,
+            "template_shape": template_shape,
+            "particle_size_px": particle_size_px
 
-        saved_count += 1
-
-    print("Saved particles:", saved_count)
-    print("Output folder:", template_output_dir)
+        })
 
     # --------------------------------------------------------
     # PLOT TEMPLATE
     # --------------------------------------------------------
 
-    axes[idx, 0].imshow(template0, cmap="gray")
+    axes[idx, 0].imshow(
+        template0,
+        cmap="gray"
+    )
+
     axes[idx, 0].set_title(template_file)
+
     axes[idx, 0].axis("off")
 
     # --------------------------------------------------------
     # PLOT NCC MAP
     # --------------------------------------------------------
 
-    im = axes[idx, 1].imshow(global_cc, cmap="inferno")
-    axes[idx, 1].set_title(f"NCC map (thr={threshold})")
-    plt.colorbar(im, ax=axes[idx, 1], fraction=0.046)
+    im = axes[idx, 1].imshow(
+        global_cc,
+        cmap="inferno"
+    )
+
+    axes[idx, 1].set_title(
+        f"NCC map (thr={threshold})"
+    )
+
+    plt.colorbar(
+        im,
+        ax=axes[idx, 1],
+        fraction=0.046
+    )
 
     # --------------------------------------------------------
-    # PLOT DETECTIONS
+    # PLOT RAW DETECTIONS
     # --------------------------------------------------------
 
-    axes[idx, 2].imshow(original_image, cmap="gray")
+    axes[idx, 2].imshow(
+        original_image,
+        cmap="gray"
+    )
 
     for y, x in coords:
 
-        score = global_cc[y, x]
-
         axes[idx, 2].add_patch(
+
             plt.Circle(
                 (x, y),
                 particle_size_px / 2,
                 fill=False,
-                color="lime",
-                linewidth=1.5
+                color="yellow",
+                linewidth=1
             )
         )
 
-        axes[idx, 2].text(
-            x,
-            y,
-            f"{score:.2f}",
-            color="yellow",
-            fontsize=6
-        )
-
     axes[idx, 2].set_title(
-        f"Detections: {len(coords)}"
+        f"Raw detections: {len(coords)}"
     )
+
     axes[idx, 2].axis("off")
 
     # --------------------------------------------------------
     # HISTOGRAM
     # --------------------------------------------------------
 
-    axes[idx, 3].hist(global_cc.ravel(), bins=100)
+    axes[idx, 3].hist(
+        global_cc.ravel(),
+        bins=100
+    )
 
     axes[idx, 3].axvline(
         threshold,
@@ -323,15 +396,134 @@ for idx, cfg in enumerate(template_configs):
     )
 
     axes[idx, 3].set_title("NCC distribution")
+
     axes[idx, 3].legend()
 
 
 # ============================================================
-# SHOW
+# SORT DETECTIONS BY SCORE
+# Highest NCC first
+# ============================================================
+
+all_detections = sorted(
+    all_detections,
+    key=lambda d: d["score"],
+    reverse=True
+)
+
+print("\n" + "=" * 70)
+print("GLOBAL FILTERING")
+print("=" * 70)
+
+print("Total detections before filtering:",
+      len(all_detections))
+
+
+# ============================================================
+# GLOBAL DUPLICATE SUPPRESSION
+# ============================================================
+
+accepted_particles = []
+
+saved_count = 0
+duplicate_count = 0
+
+for det in all_detections:
+
+    y = det["y"]
+    x = det["x"]
+
+    score = det["score"]
+
+    template_shape = det["template_shape"]
+
+    # --------------------------------------------------------
+    # REMOVE COLOCALIZED PARTICLES
+    # Keep highest score only
+    # --------------------------------------------------------
+
+    if is_duplicate(
+        y,
+        x,
+        accepted_particles,
+        duplicate_distance_px
+    ):
+
+        duplicate_count += 1
+        continue
+
+    # --------------------------------------------------------
+    # EXTRACT PARTICLE
+    # --------------------------------------------------------
+
+    particle = extract_particle(
+        image=original_image,
+        center_y=y,
+        center_x=x,
+        box_shape=template_shape
+    )
+
+    if particle is None:
+        continue
+
+    # --------------------------------------------------------
+    # SAVE PARTICLE
+    # SINGLE FOLDER
+    # --------------------------------------------------------
+
+    output_path = os.path.join(
+
+        output_dir,
+
+        (
+            f"particle_"
+            f"{saved_count:05d}"
+            f"_score_{score:.3f}.mrc"
+        )
+
+    )
+
+    with mrcfile.new(
+        output_path,
+        overwrite=True
+    ) as mrc:
+
+        mrc.set_data(
+            particle.astype(np.float32)
+        )
+
+    accepted_particles.append({
+
+        "y": y,
+        "x": x,
+        "score": score
+
+    })
+
+    saved_count += 1
+
+
+# ============================================================
+# FINAL REPORT
+# ============================================================
+
+print("\n" + "=" * 70)
+print("FINAL SUMMARY")
+print("=" * 70)
+
+print("Total detections:", len(all_detections))
+
+print("Unique particles kept:", saved_count)
+
+print("Removed colocalized particles:",
+      duplicate_count)
+
+print("Output directory:", output_dir)
+
+
+# ============================================================
+# SHOW FIGURES
 # ============================================================
 
 plt.tight_layout()
 plt.show()
-
-print("\nDone.")
-print("Extracted particles saved in:", output_dir)

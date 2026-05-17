@@ -209,13 +209,13 @@ template_configs = [
     {
         "file": "6BDF_XY_template.mrc",
         "diameter": 115,
-        "threshold": 5.0
+        "threshold": 4.5
     },
 
     {
         "file": "6BDF_XZ_template.mrc",
         "diameter": 150,
-        "threshold": 5.0
+        "threshold": 4.5
     }
 
 ]

@@ -34,6 +34,9 @@ to launch you need to have all the script in the folder and be in the folder.
 4 ----> FFT_NCC.py in input use the binned image, for the template_input use the 3 or 2 view of the template XY,XZ,YZ
             feature incorporate = normalization of the templates and the image, padding for image and template if wanted ,normalized, convertion templates and image in fourier space and fourier space cross-correlation
 
+            launch with the command in the terminal = python FFT_NCC.py binning_image.mrc "pixel_size" "pdb_template.mrc":"particles size":"threshold"
+            # python3 FFT_NCC.py binning_4_image.mrc 2.64 6BDF_XY_template.mrc:115:0.26 6BDF_XZ_template.mrc:150:0.30
+
             parameter you can change - in preprocess image choose the padding of the image wanted
                                      - in process template change the sigma for gaussian smoothing of template
                                      - in templates-input = diameter of the particle, threshold wished

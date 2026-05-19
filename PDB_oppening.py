@@ -159,10 +159,10 @@ Key Columns:
 
 
  # Pixel size imposed (Å/pixel)
-    pixel_size = image_pixel_size
+    
 
 # Padding around molecule
-    padding = 5 # Å
+    padding = 0 # Å
 
 # Determine physical box size
     x_range = coords_centered[:, 0].max() - coords_centered[:, 0].min()
